@@ -50,7 +50,7 @@ expired = df[df['남은일수'] < 0]
 soon = df[(df['남은일수'] >= 0) & (df['남은일수'] <= 30)]
 safe = df[df['남은일수'] > 30]
 
-)
+
 print("-" * 30)
 print("기준일: %s" % (today.date())) 
 print("🔴 폐기 대상: %d건" % (len(expired))) 
@@ -173,4 +173,5 @@ if st.button("📥 엑셀 파일 다운로드"):
         file_name="시약_유통기한_자동관리_결과.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
+
 
