@@ -1,91 +1,145 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime, timedelta # timedelta 추가됨
+from datetime import datetime
+import io
+from openpyxl import load_workbook
+from openpyxl.styles import PatternFill
 
-# ==========================================
-# [설정] 핵심 컬럼 이름
-# ==========================================
-FILE_NAME = 'database.xlsx'
+# =================================================
+# 기본 설정
+# =================================================
+st.set_page_config(
+    page_title="🧪 시약 유통기한 자동 관리",
+    layout="wide"
+)
 
-KEY_COLS = {
-    'name': '제품명',
-    'sub_name': '제품명(한글)',
-    'exp_date': '유통기한',
-    'danger': '유해 및 위험성'
-}
-# ==========================================
+FILE_NAME = "reagents.xlsx"
 
-st.set_page_config(page_title="시약 관리 시스템", page_icon="🧪", layout="wide")
-
+# =================================================
+# 데이터 로드
+# =================================================
+@st.cache_data
 def load_data():
-    try:
-        df = pd.read_excel(FILE_NAME)
-        df.columns = df.columns.str.strip() # 공백 제거
-        df.columns = df.columns.str.replace('\n', '').str.replace('\r', '') # 줄바꿈 제거
-
-        if KEY_COLS['exp_date'] in df.columns:
-            df[KEY_COLS['exp_date']] = pd.to_datetime(df[KEY_COLS['exp_date']], errors='coerce')
-        return df
-    except Exception as e:
-        st.error(f"데이터 오류: {e}")
-        return pd.DataFrame()
-
-# 메인 화면
-st.title("🧪 연구실 시약 종합 관리 DB")
-
-# [중요] 한국 시간 설정 (UTC + 9시간)
-today = datetime.now() + timedelta(hours=9)
-st.write(f"📅 **기준일(한국):** {today.strftime('%Y-%m-%d')}")
+    df = pd.read_excel(FILE_NAME)
+    df['등록일'] = pd.to_datetime(df['등록일'], errors="coerce")
+    df['유통기한'] = pd.to_datetime(df['유통기한'], errors="coerce")
+    return df
 
 df = load_data()
 
-if not df.empty:
-    if KEY_COLS['exp_date'] in df.columns:
-        # 남은 일수 계산
-        df['남은일수'] = (df[KEY_COLS['exp_date']] - today).dt.days + 1
-        
-        alert_days = [10, 7, 5, 3, 1]
-        urgent_df = df[df['남은일수'] <= 10].sort_values(by='남은일수')
-        
-        st.divider()
-        st.subheader("🚨 긴급 점검 (유통기한 임박)")
-        
-        if urgent_df.empty:
-            st.success("✅ 현재 위험한 시약이 없습니다.")
+# =================================================
+# 날짜 계산
+# =================================================
+today = pd.to_datetime(datetime.today().date())
+df['남은일수'] = (df['유통기한'] - today).dt.days
+df = df.sort_values(by='남은일수')
+
+expired = df[df['남은일수'] < 0]
+soon = df[(df['남은일수'] >= 0) & (df['남은일수'] <= 30)]
+safe = df[df['남은일수'] > 30]
+
+# =================================================
+# 화면 표시
+# =================================================
+st.title("🧪 시약 유통기한 자동 관리 시스템")
+st.write(f"📅 기준일: **{today.date()}**")
+
+def color_df(row):
+    if row['남은일수'] < 0:
+        return ['background-color:#ffcccc'] * len(row)
+    elif row['남은일수'] <= 30:
+        return ['background-color:#fff2cc'] * len(row)
+    return ['background-color:white'] * len(row)
+
+# =================================================
+# 🚨 1. 유통기한 지난 시약
+# =================================================
+st.subheader("🔴 유통기한 지난 시약")
+
+if expired.empty:
+    st.success("✅ 유통기한이 지난 시약이 없습니다.")
+else:
+    st.dataframe(expired.style.apply(color_df, axis=1), use_container_width=True)
+
+# =================================================
+# ⚠️ 2. 유통기한 임박 시약
+# =================================================
+st.subheader("🟡 유통기한 임박 시약 (30일 이내)")
+
+if soon.empty:
+    st.success("✅ 유통기한 임박 시약이 없습니다.")
+else:
+    st.dataframe(soon.style.apply(color_df, axis=1), use_container_width=True)
+
+# =================================================
+# ✅ 3. 유통기한 충분히 남은 시약
+# =================================================
+st.subheader("⚪ 유통기한 충분히 남은 시약")
+
+if safe.empty:
+    st.info("표시할 시약이 없습니다.")
+else:
+    st.dataframe(safe.style.apply(color_df, axis=1), use_container_width=True)
+
+# =================================================
+# 🔍 4. 전체 시약 통합 검색
+# =================================================
+st.divider()
+st.subheader("🔍 전체 시약 검색")
+
+search_term = st.text_input("시약 제품명 입력 (부분 검색 가능)")
+
+search_df = df.copy()
+
+if search_term:
+    search_df = search_df[
+        search_df['제품명'].astype(str).str.contains(search_term, case=False, na=False)
+    ]
+
+st.dataframe(
+    search_df.style.apply(color_df, axis=1),
+    use_container_width=True
+)
+
+# =================================================
+# 📥 엑셀 다운로드
+# =================================================
+st.divider()
+st.subheader("📥 엑셀 다운로드 (색상 포함)")
+
+if st.button("📥 엑셀 파일 다운로드"):
+
+    buffer = io.BytesIO()
+    df.to_excel(buffer, index=False, engine="openpyxl")
+    buffer.seek(0)
+
+    wb = load_workbook(buffer)
+    ws = wb.active
+
+    red = PatternFill("solid", start_color="FFCCCC")
+    yellow = PatternFill("solid", start_color="FFF2CC")
+
+    remain_col = [cell.value for cell in ws[1]].index("남은일수") + 1
+
+    for r in range(2, ws.max_row + 1):
+        val = ws.cell(row=r, column=remain_col).value
+        if val < 0:
+            fill = red
+        elif val <= 30:
+            fill = yellow
         else:
-            for i, row in urgent_df.iterrows():
-                d_day = row['남은일수']
-                try:
-                    name = row[KEY_COLS['name']] if KEY_COLS['name'] in df.columns else "-"
-                    sub_name = row[KEY_COLS['sub_name']] if KEY_COLS['sub_name'] in df.columns else ""
-                    danger = row[KEY_COLS['danger']] if KEY_COLS['danger'] in df.columns else ""
-                    
-                    msg_title = f"**{name}** ({sub_name})"
-                    msg_desc = f"위험성: {danger}" if danger else ""
-                    
-                    if d_day < 0:
-                        st.error(f"❌ [폐기필요] {msg_title} | {abs(d_day)}일 지남! | {msg_desc}")
-                    elif d_day in alert_days:
-                        st.warning(f"⚠️ [확인요망] {msg_title} | 딱 {d_day}일 남음 | {msg_desc}")
-                    elif 0 <= d_day <= 10:
-                        st.info(f"ℹ️ [관심] {msg_title} | {d_day}일 남음")
-                except:
-                    pass
+            continue
 
-    # 전체 리스트
-    st.divider()
-    st.subheader("📋 전체 시약 상세 리스트")
-    search_term = st.text_input("🔍 통합 검색", "")
-    
-    display_df = df.copy()
-    if KEY_COLS['exp_date'] in display_df.columns:
-        display_df[KEY_COLS['exp_date']] = display_df[KEY_COLS['exp_date']].dt.strftime('%Y-%m-%d')
-    if '등록일' in display_df.columns:
-         # 등록일이 있으면 날짜 변환 (없으면 통과)
-         display_df['등록일'] = pd.to_datetime(display_df['등록일'], errors='coerce').dt.strftime('%Y-%m-%d')
+        for c in range(1, ws.max_column + 1):
+            ws.cell(row=r, column=c).fill = fill
 
-    if search_term:
-        mask = display_df.astype(str).apply(lambda x: x.str.contains(search_term, case=False, na=False)).any(axis=1)
-        display_df = display_df[mask]
-        
-    st.dataframe(display_df, use_container_width=True, hide_index=True)
+    final_output = io.BytesIO()
+    wb.save(final_output)
+    final_output.seek(0)
+
+    st.download_button(
+        label="⬇️ 엑셀 파일 저장",
+        data=final_output,
+        file_name="시약_유통기한_자동관리_결과.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
