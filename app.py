@@ -125,7 +125,7 @@ if search_term:
     print("[User Action] 사용자가 '%s'을(를) 검색했습니다." % (search_term))
     
     search_df = search_df[
-        search_df['제품명'].astype(str).str.contains(search_term, case=False, na=False)
+        search_df['제품명'].astype(str).str.contains(search_term, case=False, na=False, regex=False)
     ]
 
 st.dataframe(
@@ -179,6 +179,7 @@ if st.button("📥 엑셀 파일 다운로드"):
         file_name="시약_유통기한_자동관리_결과.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
+
 
 
 
