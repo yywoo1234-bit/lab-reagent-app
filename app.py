@@ -88,7 +88,7 @@ if expired.empty:
 else:
     
     print("[Warning] 폐기해야 할 시약이 %d개 발견되었습니다." % (len(expired)))
-    st.dataframe(expired.style.apply(color_df, axis=1), use_container_width=True)
+    st.dataframe(expired.style.apply(color_df, axis=1), width="stretch")
 
 # =================================================
 # ⚠️ 2. 유통기한 임박 시약
@@ -98,7 +98,7 @@ st.subheader("🟡 유통기한 임박 시약 (30일 이내)")
 if soon.empty:
     st.success("✅ 유통기한 임박 시약이 없습니다.")
 else:
-    st.dataframe(soon.style.apply(color_df, axis=1), use_container_width=True)
+    st.dataframe(soon.style.apply(color_df, axis=1), width="stretch")
 
 # =================================================
 # ✅ 3. 유통기한 충분히 남은 시약
@@ -108,7 +108,7 @@ st.subheader("⚪ 유통기한 충분히 남은 시약")
 if safe.empty:
     st.info("표시할 시약이 없습니다.")
 else:
-    st.dataframe(safe.style.apply(color_df, axis=1), use_container_width=True)
+    st.dataframe(safe.style.apply(color_df, axis=1), width="stretch")
 
 # =================================================
 # 🔍 4. 전체 시약 통합 검색
@@ -130,7 +130,7 @@ if search_term:
 
 st.dataframe(
     search_df.style.apply(color_df, axis=1),
-    use_container_width=True
+    width="stretch"
 )
 
 # =================================================
@@ -179,6 +179,7 @@ if st.button("📥 엑셀 파일 다운로드"):
         file_name="시약_유통기한_자동관리_결과.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
+
 
 
 
