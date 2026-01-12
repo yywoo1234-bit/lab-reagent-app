@@ -2,8 +2,14 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 import io
+import warnings
 from openpyxl import load_workbook
 from openpyxl.styles import PatternFill
+
+# =================================================
+# [추가] 경고 메시지 차단 (터미널 깨끗하게 만들기)
+# =================================================
+warnings.filterwarnings("ignore")
 
 # =================================================
 # 기본 설정
@@ -173,5 +179,6 @@ if st.button("📥 엑셀 파일 다운로드"):
         file_name="시약_유통기한_자동관리_결과.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
+
 
 
